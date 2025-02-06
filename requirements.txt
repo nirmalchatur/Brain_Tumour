@@ -1,0 +1,84 @@
+# Core Libraries
+numpy
+pandas
+os-sys
+shutil
+glob2
+h5py
+json
+pyyaml
+
+# Image Processing & Augmentation
+opencv-python
+Pillow
+matplotlib
+seaborn
+scikit-image
+albumentations
+imgaug
+tqdm
+Augmentor
+python-resize-image
+pydicom
+SimpleITK
+
+# Deep Learning Frameworks
+tensorflow
+keras
+torch
+torchvision
+efficientnet
+tensorflow-hub
+transformers
+onnx
+onnxruntime
+xgboost
+lightgbm
+caffe
+
+# Model Evaluation & Performance Metrics
+scikit-learn
+scipy
+statsmodels
+mlxtend
+
+# Model Deployment & API Development
+streamlit
+flask
+fastapi
+gradio
+dash
+flask-restful
+uvicorn
+gunicorn
+pyngrok
+pickle-mixin
+joblib
+
+# Hardware Acceleration
+tensorflow-gpu
+torch.cuda
+cupy
+nvidia-ml-py3
+faiss
+pycuda
+
+# Cloud & Storage
+gdown
+google.colab
+boto3
+dropbox
+hdfs
+pymongo
+firebase-admin
+
+# Hyperparameter Tuning
+optuna
+ray[tune]
+hyperopt
+scipy.optimize
+
+# Explainability & Model Interpretation
+lime
+shap
+captum
