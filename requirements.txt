@@ -1,7 +1,7 @@
 streamlit
 tensorflow
 numpy
-opencv-python
+opencv-python-headless
 pillow
 markdown-it-py==2.2.0
 mdurl==0.1.2
