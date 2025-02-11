@@ -52,10 +52,10 @@ def preprocess_image(img):
 
 st.sidebar.title("🔬 Tumor Examples")
 tumor_examples = {
-    "Glioma": "C:/Users/Acer/Desktop/Testing/glioma/Te-gl_0122.jpg",
-    "Meningioma": "C:/Users/Acer/Desktop/Testing/meningioma/Te-me_0039.jpg",
-    "No Tumor": "C:/Users/Acer/Desktop/Testing/notumor/Te-no_0028.jpg",
-    "Pituitary": "C:/Users/Acer/Desktop/Testing/pituitary/Te-pi_0215.jpg"
+    "Glioma": "Training/glioma/Tr-gl_0358.jpg",
+    "Meningioma": "Training/meningioma/Tr-me_0134.jpg",
+    "No Tumor": "Training/notumor/Tr-no_0106.jpg",
+    "Pituitary": "Training/pituitary/Tr-pi_0314.jpg"
 }
 selected_tumor = st.sidebar.radio("Select a Tumor Type:", list(tumor_examples.keys()))
 st.sidebar.image(tumor_examples[selected_tumor], caption=f"Example: {selected_tumor}", use_column_width=True)
