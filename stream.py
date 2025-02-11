@@ -62,7 +62,7 @@ st.sidebar.image(tumor_examples[selected_tumor], caption=f"Example: {selected_tu
 
 # 📊 Display Model Performance
 st.sidebar.title("📈 Model Performance")
-st.sidebar.image("C:/Users/Acer/Desktop/Figure_1.png", caption="Model Performance", use_column_width=True)
+st.sidebar.image("Figure_1.png", caption="Model Performance", use_column_width=True)
 
 # 🧠 Main Title
 st.title("🧠 Brain Tumor Detection using CNN")
