@@ -1,72 +1,8 @@
-# Core Libraries
-numpy
-pandas
-h5py
-pyyaml
-
-# Image Processing & Augmentation
-opencv-python
-Pillow
-matplotlib
-seaborn
-scikit-image
-albumentations
-imgaug
-tqdm
-Augmentor
-python-resize-image
-pydicom
-SimpleITK
-
-# Deep Learning Frameworks
-tensorflow
-keras
-torch
-torchvision
-efficientnet
-tensorflow-hub
-transformers
-onnx
-onnxruntime
-xgboost
-lightgbm
-
-# Model Evaluation & Performance Metrics
-scikit-learn
-scipy
-statsmodels
-mlxtend
-
-# Model Deployment & API Development
 streamlit
-flask
-fastapi
-gradio
-uvicorn
-gunicorn
-pickle-mixin
-joblib
-
-# Hardware Acceleration (Remove if using CPU-only deployment)
-cupy
-nvidia-ml-py3
-faiss
-pycuda
-
-# Cloud & Storage
-gdown
-boto3
-dropbox
-hdfs
-pymongo
-firebase-admin
-
-# Hyperparameter Tuning
-optuna
-ray[tune]
-hyperopt
-
-# Explainability & Model Interpretation
-lime
-shap
-captum
+tensorflow
+numpy
+opencv-python
+pillow
+markdown-it-py
+mdurl
+rich
