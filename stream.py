@@ -28,7 +28,6 @@ else:
 # ✅ Corrected Class Labels
 CLASS_LABELS = ['Glioma', 'Meningioma', 'No Tumor', 'Pituitary']
 
-
 # 🔬 Function to classify tumor stage
 def classify_tumor_stage(predicted_class):
     stages = {
@@ -39,7 +38,6 @@ def classify_tumor_stage(predicted_class):
     }
     return stages.get(predicted_class, "Unknown Stage")
 
-
 # 📌 Function to preprocess the image
 def preprocess_image(img):
     img = img.convert("L")  # Convert to grayscale
@@ -49,7 +47,6 @@ def preprocess_image(img):
     img = np.expand_dims(img, axis=0)  # Ensure shape (1, 150, 150, 1)
     return img
 
-
 st.sidebar.title("🔬 Tumor Examples")
 tumor_examples = {
     "Glioma": "Training/glioma/Tr-gl_0358.jpg",
@@ -58,11 +55,11 @@ tumor_examples = {
     "Pituitary": "Training/pituitary/Tr-pi_0314.jpg"
 }
 selected_tumor = st.sidebar.radio("Select a Tumor Type:", list(tumor_examples.keys()))
-st.sidebar.image(tumor_examples[selected_tumor], caption=f"Example: {selected_tumor}", use_column_width=True)
+st.sidebar.image(tumor_examples[selected_tumor], caption=f"Example: {selected_tumor}", use_container_width=True)
 
 # 📊 Display Model Performance
 st.sidebar.title("📈 Model Performance")
-st.sidebar.image("Figure_1.png", caption="Model Performance", use_column_width=True)
+st.sidebar.image("Figure_1.png", caption="Model Performance", use_container_width=True)
 
 # 🧠 Main Title
 st.title("🧠 Brain Tumor Detection using CNN")
@@ -72,12 +69,12 @@ uploaded_file = st.file_uploader("📂 Upload MRI Image", type=["jpg", "jpeg", "
 
 if uploaded_file is not None:
     image_obj = Image.open(uploaded_file)
-    st.image(image_obj, caption="🖼️ Uploaded MRI Scan", use_column_width=True)
+    st.image(image_obj, caption="🖼️ Uploaded MRI Scan", use_container_width=True)
 
     # 🏗️ Preprocess Image & Predict
     img_array = preprocess_image(image_obj)
     predictions = model.predict(img_array)
-
+    
     # 🔍 Debugging - Show Raw Model Output
     st.write("🔍 **Model Softmax Probabilities:**", predictions)
 
@@ -99,7 +96,6 @@ if uploaded_file is not None:
     # ✅ Success message
     st.success("✅ Analysis Complete!")
 
-
     # 🎨 Function to generate Grad-CAM heatmap
     def generate_gradcam(model, img_array, class_idx):
         last_conv_layer = None
@@ -113,9 +109,10 @@ if uploaded_file is not None:
             return None
 
         grad_model = Model(inputs=model.input, outputs=[last_conv_layer.output, model.output])
-
+        
         with tf.GradientTape() as tape:
-            conv_output, predictions = grad_model(img_array)
+            conv_output, predictions = grad_model(img_array, training=False)
+            tape.watch(conv_output)
             loss = predictions[:, class_idx]
 
         grads = tape.gradient(loss, conv_output)
@@ -127,7 +124,6 @@ if uploaded_file is not None:
 
         return heatmap
 
-
     # 🎭 Function to overlay Grad-CAM heatmap
     def overlay_gradcam(original_img, heatmap):
         if heatmap is None:
@@ -138,11 +134,10 @@ if uploaded_file is not None:
         overlay = cv2.addWeighted(np.array(original_img), 0.6, heatmap, 0.4, 0)
         return Image.fromarray(overlay)
 
-
     # 🔥 Generate & Display Grad-CAM
     gradcam_heatmap = generate_gradcam(model, img_array, predicted_class)
     overlayed_img = overlay_gradcam(image_obj, gradcam_heatmap)
-    st.image(overlayed_img, caption="🔥 Highlighted Tumor Region", use_column_width=True)
+    st.image(overlayed_img, caption="🔥 Highlighted Tumor Region", use_container_width=True)
 
 # 🏷️ Footer
 st.markdown("---")
