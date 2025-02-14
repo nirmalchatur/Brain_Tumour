@@ -84,9 +84,10 @@ if uploaded_file is not None:
     predicted_class = np.argmax(predictions)
     max_prob = np.max(predictions)
 
-    # ✅ Confidence-based classification
-    confidence_threshold = 0.5
-    if max_prob < confidence_threshold:
+    # ✅ Improved Confidence-based Classification
+    confidence_threshold = 0.6  # Increased threshold
+    second_highest_prob = np.partition(predictions.flatten(), -2)[-2]
+    if max_prob < confidence_threshold or (predicted_class != 2 and second_highest_prob > 0.4):
         predicted_class = 2  # Default to "No Tumor Detected"
 
     tumor_stage = classify_tumor_stage(predicted_class)
