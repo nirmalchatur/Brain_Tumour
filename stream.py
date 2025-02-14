@@ -101,19 +101,21 @@ if uploaded_file is not None:
 
     # 🎨 Function to generate Grad-CAM heatmap
     def generate_gradcam(model, img_array, class_idx):
-        last_conv_layer = None
+        last_conv_layer_name = None
         for layer in reversed(model.layers):
             if isinstance(layer, tf.keras.layers.Conv2D):
-                last_conv_layer = layer
+                last_conv_layer_name = layer.name
                 break
 
-        if last_conv_layer is None:
+        if last_conv_layer_name is None:
             st.error("No Conv2D layer found in the model.")
             return None
 
+        last_conv_layer = model.get_layer(last_conv_layer_name)
         grad_model = Model(inputs=model.input, outputs=[last_conv_layer.output, model.output])
 
         with tf.GradientTape() as tape:
+            tape.watch(img_array)
             conv_output, predictions = grad_model(img_array, training=False)
             loss = predictions[:, class_idx]
 
