@@ -28,6 +28,7 @@ else:
 # ✅ Corrected Class Labels
 CLASS_LABELS = ['Glioma', 'Meningioma', 'No Tumor', 'Pituitary']
 
+
 # 🔬 Function to classify tumor stage
 def classify_tumor_stage(predicted_class):
     stages = {
@@ -38,6 +39,7 @@ def classify_tumor_stage(predicted_class):
     }
     return stages.get(predicted_class, "Unknown Stage")
 
+
 # 📌 Function to preprocess the image
 def preprocess_image(img):
     img = img.convert("L")  # Convert to grayscale
@@ -46,6 +48,7 @@ def preprocess_image(img):
     img = np.expand_dims(img, axis=-1)  # Ensure shape (150, 150, 1)
     img = np.expand_dims(img, axis=0)  # Ensure shape (1, 150, 150, 1)
     return img
+
 
 st.sidebar.title("🔬 Tumor Examples")
 tumor_examples = {
@@ -74,7 +77,7 @@ if uploaded_file is not None:
     # 🏗️ Preprocess Image & Predict
     img_array = preprocess_image(image_obj)
     predictions = model.predict(img_array)
-    
+
     # 🔍 Debugging - Show Raw Model Output
     st.write("🔍 **Model Softmax Probabilities:**", predictions)
 
@@ -109,16 +112,15 @@ if uploaded_file is not None:
             return None
 
         grad_model = Model(inputs=model.input, outputs=[last_conv_layer.output, model.output])
-        
+
         with tf.GradientTape() as tape:
             conv_output, predictions = grad_model(img_array, training=False)
-            tape.watch(conv_output)
             loss = predictions[:, class_idx]
 
         grads = tape.gradient(loss, conv_output)
         pooled_grads = tf.reduce_mean(grads, axis=(0, 1, 2))
-        heatmap = tf.reduce_mean(conv_output * pooled_grads, axis=-1)[0]
-
+        conv_output = conv_output[0]
+        heatmap = np.mean(conv_output * pooled_grads, axis=-1)
         heatmap = np.maximum(heatmap, 0)
         heatmap /= np.max(heatmap) + 1e-8
 
