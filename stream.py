@@ -8,6 +8,7 @@ import os
 from datetime import datetime
 import gdown
 import pywt
+import requests
 
 # ✅ Page Configuration
 st.set_page_config(
@@ -16,7 +17,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# 🏥 Professional Medical Styling
+# 🏥 Professional Medical Styling (same as before)
 st.markdown("""
     <style>
     * {
@@ -202,40 +203,113 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Function to download model from Google Drive - ALWAYS FROM DRIVE
+# Function to download model from Google Drive with better error handling
 @st.cache_resource
 def download_and_load_model():
     """
-    ALWAYS download model from Google Drive, never use local files
+    Download model from Google Drive and load it with proper verification
     """
     MODEL_URL = "https://drive.google.com/file/d/1OYbs6_og3HYMXDj0ogY5j1sH10R6NECx/view?usp=sharing"
     MODEL_PATH = "brain_tumor_model_owt.h5"
     
-    # ALWAYS DOWNLOAD FROM DRIVE - Remove local file if exists
+    # Remove existing file to ensure fresh download
     if os.path.exists(MODEL_PATH):
-        os.remove(MODEL_PATH)
-        st.info("🔄 Removing local model file, downloading fresh from Google Drive...")
+        try:
+            os.remove(MODEL_PATH)
+            st.info("🔄 Removing existing model file...")
+        except Exception as e:
+            st.warning(f"Could not remove existing file: {e}")
     
     try:
-        with st.spinner("📥 Downloading fresh model from Google Drive..."):
+        with st.spinner("📥 Downloading model from Google Drive..."):
             # Extract file ID from Google Drive URL
             file_id = MODEL_URL.split('/d/')[1].split('/')[0]
             download_url = f'https://drive.google.com/uc?id={file_id}'
+            
+            # Download with gdown
             gdown.download(download_url, MODEL_PATH, quiet=False)
-            st.success("✅ Fresh model downloaded successfully from Google Drive!")
+            
+            # Verify the file was downloaded and has content
+            if not os.path.exists(MODEL_PATH):
+                st.error("❌ Download failed - file not created")
+                return None
+                
+            file_size = os.path.getsize(MODEL_PATH)
+            if file_size == 0:
+                st.error("❌ Downloaded file is empty")
+                return None
+                
+            st.success(f"✅ Model downloaded successfully! Size: {file_size:,} bytes")
+            
     except Exception as e:
-        st.error(f"❌ Error downloading model from Google Drive: {e}")
-        return None
+        st.error(f"❌ Error downloading model: {str(e)}")
+        # Try alternative download method
+        try:
+            st.info("🔄 Trying alternative download method...")
+            file_id = MODEL_URL.split('/d/')[1].split('/')[0]
+            alternative_url = f"https://drive.google.com/uc?export=download&id={file_id}"
+            
+            session = requests.Session()
+            response = session.get(alternative_url, stream=True)
+            
+            # Handle large file download confirmation
+            for key, value in response.cookies.items():
+                if key.startswith('download_warning'):
+                    confirm_url = f"https://drive.google.com/uc?export=download&id={file_id}&confirm={value}"
+                    response = session.get(confirm_url, stream=True)
+                    break
+            
+            with open(MODEL_PATH, "wb") as f:
+                for chunk in response.iter_content(chunk_size=32768):
+                    if chunk:
+                        f.write(chunk)
+            
+            st.success("✅ Model downloaded via alternative method!")
+            
+        except Exception as alt_e:
+            st.error(f"❌ Alternative download also failed: {str(alt_e)}")
+            return None
     
-    # Load the model
+    # Load the model with better error handling
     try:
-        with st.spinner("🔄 Loading model..."):
+        with st.spinner("🔄 Loading and verifying model..."):
+            # First check if file is a valid H5 file
+            import h5py
+            try:
+                with h5py.File(MODEL_PATH, 'r') as f:
+                    st.info("✅ File is a valid H5 file")
+            except Exception as h5_error:
+                st.error(f"❌ File is not a valid H5 model: {h5_error}")
+                return None
+            
+            # Now try to load the model
             model = tf.keras.models.load_model(MODEL_PATH)
-        st.success("✅ Model loaded successfully from Google Drive!")
-        return model
+            
+            # Verify model has expected structure
+            if hasattr(model, 'layers') and len(model.layers) > 0:
+                st.success(f"✅ Model loaded successfully! Layers: {len(model.layers)}")
+                st.info(f"📊 Input shape: {model.input_shape}, Output shape: {model.output_shape}")
+                return model
+            else:
+                st.error("❌ Loaded model has no layers")
+                return None
+                
     except Exception as e:
-        st.error(f"❌ Error loading downloaded model: {e}")
-        return None
+        st.error(f"❌ Error loading model: {str(e)}")
+        
+        # Try loading with custom objects or different methods
+        try:
+            st.info("🔄 Trying alternative loading method...")
+            model = tf.keras.models.load_model(
+                MODEL_PATH,
+                compile=False,
+                custom_objects=None
+            )
+            st.success("✅ Model loaded with alternative method!")
+            return model
+        except Exception as alt_e:
+            st.error(f"❌ Alternative loading failed: {str(alt_e)}")
+            return None
 
 # Function to apply Orthogonal Wavelet Transform (OWT) to an image
 def apply_owt(img):
@@ -263,11 +337,44 @@ def apply_owt(img):
         st.error(f"Error in OWT processing: {e}")
         return None
 
-# Load the model - ALWAYS FROM GOOGLE DRIVE
+# Load the model with progress indication
+st.markdown("### 🔧 Model Initialization")
 model = download_and_load_model()
 
 if model is None:
-    st.error("⚠️ Failed to load model from Google Drive! The application cannot continue.")
+    st.error("""
+    ⚠️ Failed to load model from Google Drive! 
+    
+    **Possible reasons:**
+    1. Google Drive file is not accessible
+    2. File is not a valid Keras model
+    3. Network connectivity issues
+    4. File might be too large for download
+    
+    **Solutions to try:**
+    - Check if the Google Drive link is publicly accessible
+    - Verify the file is a valid .h5 Keras model
+    - Try uploading the model file directly to your project
+    - Check the file size (should be reasonable for download)
+    """)
+    
+    # Provide alternative options
+    st.markdown("### 🔄 Alternative Options")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("🔄 Retry Download"):
+            st.cache_resource.clear()
+            st.rerun()
+    
+    with col2:
+        if st.button("📁 Upload Model File"):
+            uploaded_model = st.file_uploader("Upload your model file (.h5)", type=["h5"])
+            if uploaded_model is not None:
+                with open("uploaded_model.h5", "wb") as f:
+                    f.write(uploaded_model.getbuffer())
+                st.success("Model uploaded! Please refresh the app.")
+    
     st.stop()
 
 # Class Labels
@@ -400,21 +507,25 @@ with st.sidebar:
     
     st.markdown('<div class="sidebar-section">', unsafe_allow_html=True)
     st.markdown('<div class="sidebar-title">ℹ️ Model Information</div>', unsafe_allow_html=True)
-    st.markdown("""
-    **Model Features:**
-    - 🧠 Brain Tumor Classification
-    - 🔬 OWT Preprocessing
-    - 📊 Grad-CAM Visualization
-    - 🎯 4-Class Detection
-    - ☁️ Always from Google Drive
-    """)
+    if model is not None:
+        st.markdown(f"""
+        **Model Features:**
+        - 🧠 Brain Tumor Classification
+        - 🔬 OWT Preprocessing
+        - 📊 Grad-CAM Visualization
+        - 🎯 4-Class Detection
+        - ☁️ From Google Drive
+        - 📏 Input: {model.input_shape}
+        - 📈 Output: {model.output_shape}
+        - 🏗️ Layers: {len(model.layers)}
+        """)
     st.markdown('</div>', unsafe_allow_html=True)
 
 # ========== MAIN CONTENT ==========
 st.markdown("""
     <div class="header-container">
         <div class="header-title">🏥 Brain Tumor Detection System</div>
-        <div class="header-subtitle">Powered by Advanced CNN with OWT Technology • Always from Google Drive • Clinical Analysis Tool</div>
+        <div class="header-subtitle">Powered by Advanced CNN with OWT Technology • Model from Google Drive • Clinical Analysis Tool</div>
     </div>
 """, unsafe_allow_html=True)
 
@@ -554,7 +665,7 @@ if uploaded_file is not None:
 st.markdown("""
     <div class="footer-text">
         <strong>Brain Tumor Detection System with OWT</strong><br>
-        Model always downloaded from Google Drive • Clinical Support Tool<br>
+        Model downloaded from Google Drive • Clinical Support Tool<br>
         Always consult with a radiologist or medical professional for diagnosis
     </div>
 """, unsafe_allow_html=True)
