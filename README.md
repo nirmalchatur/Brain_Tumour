@@ -8,7 +8,8 @@ This project implements an automated deep learning system for detecting brain tu
 The model classifies MRI images into **tumor-present** and **tumor-absent** categories with high accuracy, assisting radiologists in clinical diagnostics.
 
 ---
-
+## 🎯 Deployment Link
+->  https://nirmalchatur-brain-tumour-stream-z3pi7y.streamlit.app/
 ## 🎯 Key Features
 - **High Accuracy**: 96.95% classification accuracy  
 - **Robust Performance**: Precision 95.94%, Recall 94.10%, F1-score 93.40%  
