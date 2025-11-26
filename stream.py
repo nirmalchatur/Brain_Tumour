@@ -243,45 +243,11 @@ def download_and_load_model():
             
     except Exception as e:
         st.error(f"❌ Error downloading model: {str(e)}")
-        # Try alternative download method
-        try:
-            st.info("🔄 Trying alternative download method...")
-            file_id = MODEL_URL.split('/d/')[1].split('/')[0]
-            alternative_url = f"https://drive.google.com/uc?export=download&id={file_id}"
-            
-            session = requests.Session()
-            response = session.get(alternative_url, stream=True)
-            
-            # Handle large file download confirmation
-            for key, value in response.cookies.items():
-                if key.startswith('download_warning'):
-                    confirm_url = f"https://drive.google.com/uc?export=download&id={file_id}&confirm={value}"
-                    response = session.get(confirm_url, stream=True)
-                    break
-            
-            with open(MODEL_PATH, "wb") as f:
-                for chunk in response.iter_content(chunk_size=32768):
-                    if chunk:
-                        f.write(chunk)
-            
-            st.success("✅ Model downloaded via alternative method!")
-            
-        except Exception as alt_e:
-            st.error(f"❌ Alternative download also failed: {str(alt_e)}")
-            return None
+        return None
     
     # Load the model with better error handling
     try:
         with st.spinner("🔄 Loading and verifying model..."):
-            # First check if file is a valid H5 file
-            import h5py
-            try:
-                with h5py.File(MODEL_PATH, 'r') as f:
-                    st.info("✅ File is a valid H5 file")
-            except Exception as h5_error:
-                st.error(f"❌ File is not a valid H5 model: {h5_error}")
-                return None
-            
             # Now try to load the model
             model = tf.keras.models.load_model(MODEL_PATH)
             
@@ -296,45 +262,6 @@ def download_and_load_model():
                 
     except Exception as e:
         st.error(f"❌ Error loading model: {str(e)}")
-        
-        # Try loading with custom objects or different methods
-        try:
-            st.info("🔄 Trying alternative loading method...")
-            model = tf.keras.models.load_model(
-                MODEL_PATH,
-                compile=False,
-                custom_objects=None
-            )
-            st.success("✅ Model loaded with alternative method!")
-            return model
-        except Exception as alt_e:
-            st.error(f"❌ Alternative loading failed: {str(alt_e)}")
-            return None
-
-# Function to apply Orthogonal Wavelet Transform (OWT) to an image
-def apply_owt(img):
-    """Apply OWT preprocessing to match model training"""
-    try:
-        # Convert PIL Image to numpy array
-        img_array = np.array(img)
-        
-        # If image is RGB, convert to grayscale
-        if len(img_array.shape) == 3 and img_array.shape[2] == 3:
-            img_gray = cv2.cvtColor(img_array, cv2.COLOR_RGB2GRAY)
-        else:
-            img_gray = img_array
-            
-        # Perform 2-level OWT
-        coeffs = pywt.wavedec2(img_gray, 'haar', level=2)
-        cA2, _, _ = coeffs  # Extract only cA2 (approximation coefficients)
-
-        # Resize to match model input shape
-        transformed_img = cv2.resize(cA2, (150, 150))
-        transformed_img = np.expand_dims(transformed_img, axis=-1)  # Ensure shape (150,150,1)
-
-        return transformed_img
-    except Exception as e:
-        st.error(f"Error in OWT processing: {e}")
         return None
 
 # Load the model with progress indication
@@ -344,38 +271,29 @@ model = download_and_load_model()
 if model is None:
     st.error("""
     ⚠️ Failed to load model from Google Drive! 
-    
-    **Possible reasons:**
-    1. Google Drive file is not accessible
-    2. File is not a valid Keras model
-    3. Network connectivity issues
-    4. File might be too large for download
-    
-    **Solutions to try:**
-    - Check if the Google Drive link is publicly accessible
-    - Verify the file is a valid .h5 Keras model
-    - Try uploading the model file directly to your project
-    - Check the file size (should be reasonable for download)
     """)
-    
-    # Provide alternative options
-    st.markdown("### 🔄 Alternative Options")
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("🔄 Retry Download"):
-            st.cache_resource.clear()
-            st.rerun()
-    
-    with col2:
-        if st.button("📁 Upload Model File"):
-            uploaded_model = st.file_uploader("Upload your model file (.h5)", type=["h5"])
-            if uploaded_model is not None:
-                with open("uploaded_model.h5", "wb") as f:
-                    f.write(uploaded_model.getbuffer())
-                st.success("Model uploaded! Please refresh the app.")
-    
     st.stop()
+
+# Detect model type and set preprocessing accordingly
+def detect_model_type(model):
+    """Detect if model is Inception-based or custom CNN"""
+    input_shape = model.input_shape
+    if len(input_shape) == 4:  # Typical for CNN models
+        height, width, channels = input_shape[1], input_shape[2], input_shape[3]
+        
+        if height == 299 and width == 299 and channels == 3:
+            return "inception", (299, 299, 3)
+        elif height == 150 and width == 150 and channels == 1:
+            return "custom_cnn_owt", (150, 150, 1)
+        elif height == 150 and width == 150 and channels == 3:
+            return "custom_cnn_rgb", (150, 150, 3)
+    
+    return "unknown", input_shape
+
+# Detect model type
+model_type, expected_shape = detect_model_type(model)
+st.info(f"🔍 Detected model type: {model_type.upper()}")
+st.info(f"📐 Expected input shape: {expected_shape}")
 
 # Class Labels
 CLASS_LABELS = ['Glioma', 'Meningioma', 'No Tumor', 'Pituitary']
@@ -399,21 +317,60 @@ def get_stage_color(stage):
     }
     return colors.get(stage, "")
 
-# Preprocess Image with OWT
-def preprocess_image(img):
-    """Preprocess image using OWT (same as training)"""
+# Preprocess Image based on model type
+def preprocess_image(img, model_type):
+    """Preprocess image according to model requirements"""
     try:
-        # Apply OWT transformation
-        img_processed = apply_owt(img)
-        if img_processed is None:
-            return None
+        # Convert PIL Image to numpy array
+        img_array = np.array(img)
+        
+        if model_type == "inception":
+            # Inception model expects (299, 299, 3) RGB
+            if len(img_array.shape) == 2:  # Grayscale
+                img_array = cv2.cvtColor(img_array, cv2.COLOR_GRAY2RGB)
+            elif img_array.shape[2] == 4:  # RGBA
+                img_array = cv2.cvtColor(img_array, cv2.COLOR_RGBA2RGB)
             
-        # Normalize and add batch dimension
-        img_array = img_processed / 255.0
-        img_array = np.expand_dims(img_array, axis=0)
+            # Resize to 299x299
+            img_resized = cv2.resize(img_array, (299, 299))
+            # Normalize for Inception (values between -1 and 1)
+            img_normalized = img_resized / 127.5 - 1.0
+            img_array = np.expand_dims(img_normalized, axis=0)
+            
+        elif model_type == "custom_cnn_owt":
+            # Custom CNN with OWT expects (150, 150, 1)
+            if len(img_array.shape) == 3 and img_array.shape[2] == 3:
+                img_gray = cv2.cvtColor(img_array, cv2.COLOR_RGB2GRAY)
+            else:
+                img_gray = img_array
+                
+            # Perform 2-level OWT
+            coeffs = pywt.wavedec2(img_gray, 'haar', level=2)
+            cA2, _, _ = coeffs
+            transformed_img = cv2.resize(cA2, (150, 150))
+            transformed_img = np.expand_dims(transformed_img, axis=-1)
+            img_array = transformed_img / 255.0
+            img_array = np.expand_dims(img_array, axis=0)
+            
+        elif model_type == "custom_cnn_rgb":
+            # Custom CNN with RGB expects (150, 150, 3)
+            if len(img_array.shape) == 2:  # Grayscale
+                img_array = cv2.cvtColor(img_array, cv2.COLOR_GRAY2RGB)
+            elif img_array.shape[2] == 4:  # RGBA
+                img_array = cv2.cvtColor(img_array, cv2.COLOR_RGBA2RGB)
+            
+            img_resized = cv2.resize(img_array, (150, 150))
+            img_array = img_resized / 255.0
+            img_array = np.expand_dims(img_array, axis=0)
+            
+        else:
+            st.error(f"❌ Unsupported model type: {model_type}")
+            return None
+
         return img_array
+        
     except Exception as e:
-        st.error(f"Error preprocessing image: {e}")
+        st.error(f"Error preprocessing image for {model_type}: {e}")
         return None
 
 # Generate Grad-CAM
@@ -511,13 +468,11 @@ with st.sidebar:
         st.markdown(f"""
         **Model Features:**
         - 🧠 Brain Tumor Classification
-        - 🔬 OWT Preprocessing
-        - 📊 Grad-CAM Visualization
-        - 🎯 4-Class Detection
-        - ☁️ From Google Drive
+        - 🔍 Type: {model_type.upper()}
         - 📏 Input: {model.input_shape}
         - 📈 Output: {model.output_shape}
         - 🏗️ Layers: {len(model.layers)}
+        - ☁️ From Google Drive
         """)
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -525,9 +480,9 @@ with st.sidebar:
 st.markdown("""
     <div class="header-container">
         <div class="header-title">🏥 Brain Tumor Detection System</div>
-        <div class="header-subtitle">Powered by Advanced CNN with OWT Technology • Model from Google Drive • Clinical Analysis Tool</div>
+        <div class="header-subtitle">Powered by {model_type.upper()} • Model from Google Drive • Clinical Analysis Tool</div>
     </div>
-""", unsafe_allow_html=True)
+""".format(model_type=model_type), unsafe_allow_html=True)
 
 col1, col2 = st.columns([2, 1])
 with col1:
@@ -536,12 +491,12 @@ with col1:
 
 with col2:
     st.markdown('<div class="section-header">ℹ️ Instructions</div>', unsafe_allow_html=True)
-    st.info("""
+    st.info(f"""
     Upload a brain MRI scan in JPG, PNG format. 
     
     The system will:
-    - Download model from Google Drive
-    - Apply OWT preprocessing
+    - Use {model_type.upper()} model
+    - Preprocess for {expected_shape} input
     - Analyze for tumor presence
     - Highlight regions of interest
     - Provide confidence scores
@@ -560,9 +515,9 @@ if uploaded_file is not None:
             st.image(image_obj, use_container_width=True)
             st.markdown('</div>', unsafe_allow_html=True)
         
-        # Process image with OWT
-        with st.spinner("🔄 Processing image with OWT..."):
-            img_array = preprocess_image(image_obj)
+        # Process image according to model type
+        with st.spinner(f"🔄 Processing image for {model_type.upper()}..."):
+            img_array = preprocess_image(image_obj, model_type)
             
             if img_array is None:
                 st.error("❌ Failed to process image. Please try another image.")
@@ -664,8 +619,8 @@ if uploaded_file is not None:
 # Footer
 st.markdown("""
     <div class="footer-text">
-        <strong>Brain Tumor Detection System with OWT</strong><br>
-        Model downloaded from Google Drive • Clinical Support Tool<br>
+        <strong>Brain Tumor Detection System</strong><br>
+        Using {model_type.upper()} model from Google Drive • Clinical Support Tool<br>
         Always consult with a radiologist or medical professional for diagnosis
     </div>
-""", unsafe_allow_html=True)
+""".format(model_type=model_type), unsafe_allow_html=True)
