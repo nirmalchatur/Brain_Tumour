@@ -202,36 +202,39 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Function to download model from Google Drive
+# Function to download model from Google Drive - ALWAYS FROM DRIVE
 @st.cache_resource
 def download_and_load_model():
     """
-    Download model from Google Drive and load it
+    ALWAYS download model from Google Drive, never use local files
     """
     MODEL_URL = "https://drive.google.com/file/d/1OYbs6_og3HYMXDj0ogY5j1sH10R6NECx/view?usp=sharing"
     MODEL_PATH = "brain_tumor_model_owt.h5"
     
-    # Download the model if it doesn't exist
-    if not os.path.exists(MODEL_PATH):
-        try:
-            with st.spinner("📥 Downloading pre-trained model from Google Drive..."):
-                # Extract file ID from Google Drive URL
-                file_id = MODEL_URL.split('/d/')[1].split('/')[0]
-                download_url = f'https://drive.google.com/uc?id={file_id}'
-                gdown.download(download_url, MODEL_PATH, quiet=False)
-                st.success("✅ Model downloaded successfully!")
-        except Exception as e:
-            st.error(f"❌ Error downloading model: {e}")
-            return None
+    # ALWAYS DOWNLOAD FROM DRIVE - Remove local file if exists
+    if os.path.exists(MODEL_PATH):
+        os.remove(MODEL_PATH)
+        st.info("🔄 Removing local model file, downloading fresh from Google Drive...")
+    
+    try:
+        with st.spinner("📥 Downloading fresh model from Google Drive..."):
+            # Extract file ID from Google Drive URL
+            file_id = MODEL_URL.split('/d/')[1].split('/')[0]
+            download_url = f'https://drive.google.com/uc?id={file_id}'
+            gdown.download(download_url, MODEL_PATH, quiet=False)
+            st.success("✅ Fresh model downloaded successfully from Google Drive!")
+    except Exception as e:
+        st.error(f"❌ Error downloading model from Google Drive: {e}")
+        return None
     
     # Load the model
     try:
         with st.spinner("🔄 Loading model..."):
             model = tf.keras.models.load_model(MODEL_PATH)
-        st.success("✅ Model loaded successfully!")
+        st.success("✅ Model loaded successfully from Google Drive!")
         return model
     except Exception as e:
-        st.error(f"❌ Error loading model: {e}")
+        st.error(f"❌ Error loading downloaded model: {e}")
         return None
 
 # Function to apply Orthogonal Wavelet Transform (OWT) to an image
@@ -260,11 +263,11 @@ def apply_owt(img):
         st.error(f"Error in OWT processing: {e}")
         return None
 
-# Load the model
+# Load the model - ALWAYS FROM GOOGLE DRIVE
 model = download_and_load_model()
 
 if model is None:
-    st.error("⚠️ Failed to load model! The application cannot continue.")
+    st.error("⚠️ Failed to load model from Google Drive! The application cannot continue.")
     st.stop()
 
 # Class Labels
@@ -403,6 +406,7 @@ with st.sidebar:
     - 🔬 OWT Preprocessing
     - 📊 Grad-CAM Visualization
     - 🎯 4-Class Detection
+    - ☁️ Always from Google Drive
     """)
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -410,7 +414,7 @@ with st.sidebar:
 st.markdown("""
     <div class="header-container">
         <div class="header-title">🏥 Brain Tumor Detection System</div>
-        <div class="header-subtitle">Powered by Advanced CNN with OWT Technology • Clinical Analysis Tool</div>
+        <div class="header-subtitle">Powered by Advanced CNN with OWT Technology • Always from Google Drive • Clinical Analysis Tool</div>
     </div>
 """, unsafe_allow_html=True)
 
@@ -425,6 +429,7 @@ with col2:
     Upload a brain MRI scan in JPG, PNG format. 
     
     The system will:
+    - Download model from Google Drive
     - Apply OWT preprocessing
     - Analyze for tumor presence
     - Highlight regions of interest
@@ -549,7 +554,7 @@ if uploaded_file is not None:
 st.markdown("""
     <div class="footer-text">
         <strong>Brain Tumor Detection System with OWT</strong><br>
-        Clinical Support Tool • For Professional Medical Use Only<br>
+        Model always downloaded from Google Drive • Clinical Support Tool<br>
         Always consult with a radiologist or medical professional for diagnosis
     </div>
 """, unsafe_allow_html=True)
